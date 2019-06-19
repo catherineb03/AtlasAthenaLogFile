@@ -4,7 +4,8 @@ import sys
 
 desc = 'Tool to check for error messages in a log file. By default ERROR, FATAL \
   and CRITICAL messages are considered. The config file may be used to \
-provide patterns of lines to exclude from this check - known false positives.'
+provide patterns of lines to exclude from this check - known false positives. \
+If no config file is provided, all errors will be shown.'
 
 epilogue = 'Note that at least one of errors and warnings must be true, otherwise there is nothing to search for.\
     Using --errors will disable errors.'
@@ -29,7 +30,7 @@ def parseOptions():
     parser.add_argument('--config',
     metavar='<file>',
     type = str,
-    help ='specify config file (default is check_log.conf) will be got from DATAPATH if it does not exist',
+    help ='specify config file (default is check_log.conf) will be got from cwd if it does not exist',
     default='check_log.conf'
     )
     parser.add_argument('--showexcludestats',
@@ -42,7 +43,7 @@ def parseOptions():
     default = False,
     help ='check in addition for WARNING messages (default False)'
     )
-    parser.add_argument('--errors', #thinking of changing to --noerrors? will check based on usage in existing system. Highly recommend.
+    parser.add_argument('--errors', 
     action = 'store_false',
     default = True,
     help = 'check errors (default true)'
@@ -50,16 +51,18 @@ def parseOptions():
     global args
     args = parser.parse_args()
     print(args)
-    if not (args.errors or args.warnings): #Will have to make it |not args.noterrors| if change made in line 42.
+    if not (args.errors or args.warnings): 
         print('error: at least one of errors and warnings must be enabled')
-        sys.exit(4)
+        sys.exit(4) # error codes have been changed from the Perl script
 
+# Parses the config file provided into a list (ignorePattern)
+# If no config file is used, all results will be printed to the terminal
 def parseConfig():
     global ignorePattern
     global noConfig
     ignorePattern = []
     configFileAddress = args.config
-    try:
+    try: 
         with open(configFileAddress,'r') as configFile:
             for aline in configFile:
                 if 'ignore' in aline:
@@ -69,10 +72,10 @@ def parseConfig():
     except:
       print('NO CONFIG FILE FOUND, NOTHING WILL BE IGNORED')
       noConfig = True
-    #print(ignorePattern)
+
 def scanLogfile():
-    excludeStats = 0
     resultsA =[]
+    global pattern
     pattern = []
     tPattern = re.compile('|'.join(traceback))
     global msgLevels
@@ -82,10 +85,7 @@ def scanLogfile():
     if args.errors == True:
         pattern.extend(errorRegex)
     msgLevels = re.compile('|'.join(pattern))
-    #print(msgLevels)
     igLevels = re.compile('|'.join(ignorePattern))
-    #print(igLevels)
-    #print(pattern)
     logFileAddress = args.logfile
     try:
         with open(logFileAddress,'r') as logFile:
@@ -96,7 +96,6 @@ def scanLogfile():
                 elif line =='\n':
                     tracing = False
                 if re.search(msgLevels,line):
-                    #print('Accepted',line);
                     resultsA.append(line)
                 elif tracing:
                     resultsA.append(line)
@@ -105,7 +104,7 @@ def scanLogfile():
     if args.showexcludestats and not noConfig:
         seperateIgnoreRegex = [re.compile(line) for line in ignorePattern]
         global ignoreDict
-        ignoreDict = {line:False for line in ignorePattern}       
+        ignoreDict = {line:False for line in ignorePattern} # stores ignored errors/warnings       
     global results
     results = []
     if noConfig:
@@ -118,23 +117,20 @@ def scanLogfile():
             for i in range(len(seperateIgnoreRegex)):
                 if re.search(seperateIgnoreRegex[i],line):
                     ignoreDict[ignorePattern[i]] = True
-    #print('FINAL',results)
-    
-
+  
 def printResults():
-    print('Checking for',msgLevels,'in log.')
+    global pattern
+    print('Checking for: '+ str(pattern) +' in log.\n')
     if args.showexcludestats and not noConfig:
         print('Ignored:')
         for i in ignoreDict:
             if ignoreDict[i]:
                 print(i)
         print('\n')
-    print('Found messages in',logFileAddress,':')
+    print('Found messages in '+ logFileAddress +':')
     if len(results) > 0:
         for msg in results: print(msg.strip('\n'))
-        print("FAILURE : error/fatal found in log file - see",logFileAddress,"\nNB replace rel_0 with actual nightly in this URL.")
+        print("FAILURE : error/fatal found in " + logFileAddress)
         sys.exit(10)
 
 main()
-
- 
